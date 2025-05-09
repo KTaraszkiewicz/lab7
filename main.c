@@ -21,6 +21,7 @@
 #define PIPE_BUFFER_SIZE 65536  // 64KB chunks
 #define MAX_WRITE_RETRIES 10    // Maximum number of retry attempts
 #define RETRY_DELAY_BASE_US 1000 // Base delay in microseconds (1ms)
+#define DEFAULT_OUTPUT_FILE "primes.txt"  // Default output file name
 
 typedef int pipe_t;
 
@@ -46,6 +47,7 @@ size_t subproc_num;        // Number of processes
 int rangeStart;            // Start of the range to check
 int rangeEnd;              // End of the range to check
 size_t totalNumbers;       // Total number of numbers to check
+char outputFile[256];      // Output file name
 
 // Checks if a number is prime
 bool isPrime(int num) {
@@ -266,10 +268,32 @@ void execute_fork(calcInfo *forkInfo, int *numbersToCheck, size_t totalNumbersFo
     printf("[Process %d] found %zu prime numbers\n", getpid(), forkInfo->primeCount);
 }
 
+// Writes the primes to a file
+void write_primes_to_file(int *primes, size_t count, const char *filename) {
+    FILE *outfile = fopen(filename, "w");
+    
+    if (!outfile) {
+        perror("Failed to open output file");
+        return;
+    }
+    
+    // First write the total count of primes
+    fprintf(outfile, "Total prime numbers found: %zu\n\n", count);
+    
+    // Then write all the prime numbers
+    for (size_t i = 0; i < count; i++) {
+        fprintf(outfile, "%d\n", primes[i]);
+    }
+    
+    fclose(outfile);
+    printf("[MAIN] Prime numbers written to file: %s\n", filename);
+}
+
 // Parses program arguments and sets global variables
 void read_args(int argc, char **argv) {
-    if (argc != 5) {
-        fprintf(stderr, "Usage: %s <range_start> <range_end> <number_of_processes> <number_of_threads>\n", argv[0]);
+    // Check if we have 5 or 6 arguments
+    if (argc != 5 && argc != 6) {
+        fprintf(stderr, "Usage: %s <range_start> <range_end> <number_of_processes> <number_of_threads> [output_file]\n", argv[0]);
         exit(1);
     }
     
@@ -278,6 +302,14 @@ void read_args(int argc, char **argv) {
     rangeEnd = atoi(argv[2]);
     subproc_num = atoi(argv[3]);
     thread_num = atoi(argv[4]);
+    
+    // Set the output file name
+    if (argc == 6) {
+        strncpy(outputFile, argv[5], sizeof(outputFile) - 1);
+        outputFile[sizeof(outputFile) - 1] = '\0';  // Ensure null termination
+    } else {
+        strncpy(outputFile, DEFAULT_OUTPUT_FILE, sizeof(outputFile) - 1);
+    }
     
     // Calculate total numbers
     totalNumbers = rangeEnd - rangeStart + 1;
@@ -306,7 +338,8 @@ void printProcessStatus() {
     printf("\nPROGRAM PARAMETERS\n");
     printf(" - Range: [%d, %d] (%zu numbers)\n", rangeStart, rangeEnd, totalNumbers);
     printf(" - Subprocesses: %zu\n", subproc_num);
-    printf(" - Threads per subprocess: %zu\n\n", thread_num);
+    printf(" - Threads per subprocess: %zu\n", thread_num);
+    printf(" - Output file: %s\n\n", outputFile);
 }
 
 // Main function of the program
@@ -498,7 +531,7 @@ int main(int argc, char **argv) {
         printf("[MAIN] Child %d reported %zu primes\n", i, childPrimeCount);
     }
     
-    // Allocate memory for all prime numbers but don't display them
+    // Allocate memory for all prime numbers
     int *allPrimes = NULL;
     if (totalPrimeCount > 0) {
         allPrimes = (int*)malloc(totalPrimeCount * sizeof(int));
@@ -508,7 +541,7 @@ int main(int argc, char **argv) {
         }
     }
     
-    // Now read the actual prime numbers (but don't display them)
+    // Now read the actual prime numbers
     size_t offset = 0;
     for (int i = 0; i < subproc_num; i++) {
         if (childCounts[i] > 0) {
@@ -526,6 +559,27 @@ int main(int argc, char **argv) {
             }
         }
         close(pipes[i][PIPE_READ]);
+    }
+    
+    // Sort the primes in ascending order (optional - can be removed if not needed)
+    if (totalPrimeCount > 0) {
+        // Simple bubble sort - could be replaced with qsort for larger datasets
+        for (size_t i = 0; i < totalPrimeCount - 1; i++) {
+            for (size_t j = 0; j < totalPrimeCount - i - 1; j++) {
+                if (allPrimes[j] > allPrimes[j + 1]) {
+                    int temp = allPrimes[j];
+                    allPrimes[j] = allPrimes[j + 1];
+                    allPrimes[j + 1] = temp;
+                }
+            }
+        }
+    }
+    
+    // Write primes to file
+    if (totalPrimeCount > 0) {
+        write_primes_to_file(allPrimes, totalPrimeCount, outputFile);
+    } else {
+        printf("[MAIN] No prime numbers found to write to file.\n");
     }
     
     // Wait for all child processes to complete
