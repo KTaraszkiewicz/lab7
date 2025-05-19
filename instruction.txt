@@ -1,0 +1,14 @@
+How to Use the Program:
+
+Compile:
+gcc -o prime_finder prime_finder.c -lm -pthread
+
+Run:
+./prime_finder <num_processes> <num_threads>
+
+Submit Tasks:
+echo "10 1000 wyjscie-10-1000.out" > zadania.in
+echo "2000 3000 wyjscie-2000-3000.out" > zadania.in
+
+Terminate:
+echo "EXIT" > zadania.in
