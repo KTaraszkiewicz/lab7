@@ -1,10 +1,10 @@
 How to Use the Program:
 
 Compile:
-gcc -o prime_finder prime_finder.c -lm -pthread
+gcc -o lab8 lab8.c -lpthread -lm
 
 Run:
-./prime_finder <num_processes> <num_threads>
+./lab8 <num_processes> <num_threads>
 
 Submit Tasks:
 echo "10 1000 wyjscie-10-1000.out" > zadania.in
